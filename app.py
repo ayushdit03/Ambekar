@@ -4,6 +4,10 @@ import numpy as np
 from datetime import timedelta
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, roc_auc_score, confusion_matrix, ConfusionMatrixDisplay
+import os
+PORT = os.environ.get("PORT", 10000)
+
+# In terminal: streamlit run your_script.py --server.port $PORT
 
 # --- Footer Setup ---
 from streamlit.components.v1 import html
