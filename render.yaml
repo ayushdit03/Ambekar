@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: power-predictor
+    env: python
+    buildCommand: ""
+    startCommand: streamlit run your_script_name.py --server.port 10000
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10
