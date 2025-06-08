@@ -6,12 +6,15 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, roc_auc_score, confusion_matrix, ConfusionMatrixDisplay
 import os
 PORT = os.environ.get("PORT", 10000)
-
-# In terminal: streamlit run your_script.py --server.port $PORT
-
-# --- Footer Setup ---
+import streamlit as st
+import pandas as pd
+import numpy as np
+from datetime import timedelta
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, roc_auc_score, confusion_matrix, ConfusionMatrixDisplay
 from streamlit.components.v1 import html
 
+# --- Footer Setup ---
 def link(url, text):
     return f"<a href='{url}' target='_blank' style='color:inherit; text-decoration:none;'>{text}</a>"
 
@@ -69,9 +72,9 @@ def load_data(device_name):
     data['timestamp'] = pd.to_datetime(data['timestamp'], format="%d:%m:%Y %H:%M:%S.%f")
     return data
 
-# --- Predict next points for given duration ---
+# --- Predict next points ---
 def predict_next_detailed(data, duration_seconds):
-    freq = 5  # every 5 seconds
+    freq = 5
     n_steps = duration_seconds // freq
     preds = []
     last_data = data[features].tail(12).mean().values
@@ -83,8 +86,7 @@ def predict_next_detailed(data, duration_seconds):
     pred_df['timestamp'] = timestamps
     return pred_df
 
-# --- Summarize all features ---
-# --- Summarize all features using sum ---
+# --- Summarize Metrics ---
 def summarize_metrics(df):
     return {
         'voltage': df['voltage'].sum(),
@@ -92,14 +94,12 @@ def summarize_metrics(df):
         'power': df['power'].sum()
     }
 
-
-# --- Classification Evaluation ---
+# --- Classification Metrics ---
 def show_classification_metrics(data):
     median_power = np.median(data['power'])
     y_true_class = (data['power'] > median_power).astype(int)
     y_pred_class = (data['power'] + np.random.normal(0, 0.05, size=len(data['power'])) > median_power).astype(int)
 
-    # ROC Curve
     fpr, tpr, _ = roc_curve(y_true_class, y_pred_class)
     auc_score = roc_auc_score(y_true_class, y_pred_class)
     fig_roc, ax_roc = plt.subplots()
@@ -111,14 +111,65 @@ def show_classification_metrics(data):
     ax_roc.legend()
     st.pyplot(fig_roc)
 
-    # Confusion Matrix
     cm = confusion_matrix(y_true_class, y_pred_class)
     fig_cm, ax_cm = plt.subplots()
     disp = ConfusionMatrixDisplay(confusion_matrix=cm)
     disp.plot(ax=ax_cm)
     st.pyplot(fig_cm)
 
-# --- Finalized display logic ---
+# --- Consumption Prediction Table and Graphs ---
+def extended_analytics(data, prediction):
+    st.subheader("📉 Time Series Graphs for Current and Power ")
+    ten_min_data = prediction.head(120)
+
+    for col in ['current', 'power']:
+        fig, ax = plt.subplots()
+        ax.plot(ten_min_data['timestamp'], ten_min_data[col], label=col.capitalize())
+        ax.set_title(f"Prediction of {col.capitalize()}")
+        ax.set_xlabel("Timestamp")
+        ax.set_ylabel(col.capitalize())
+        ax.legend()
+        st.pyplot(fig)
+
+    st.subheader("📋 Prediction Comparison Table for Last 10 Entries Of CSV ")
+    original = data.tail(10).copy()
+    predicted = predict_next_detailed(data[:-10], duration_seconds=50).tail(10).copy()
+    comparison = pd.DataFrame({
+        'Timestamp': original['timestamp'],
+        'Original Current': original['current'].values,
+        'Predicted Current': predicted['current'].values,
+        'Original Power': original['power'].values,
+        'Predicted Power': predicted['power'].values,
+    })
+    st.dataframe(comparison)
+
+    st.subheader("🔌 Monthly Electricity Bill Estimate from 1 Hour Prediction")
+    one_hour_consumption = prediction.loc[prediction['timestamp'] <= prediction['timestamp'].iloc[0] + timedelta(hours=1), 'power'].sum()
+    monthly_units = one_hour_consumption * 24 * 30 / 240000
+
+    if monthly_units <= 500:
+        rate = 6.30
+        slab = "251 - 500 Unit"
+    elif monthly_units <= 800:
+        rate = 7.10
+        slab = "501 - 800 Unit"
+    else:
+        rate = 7.25
+        slab = "Above 801 Unit"
+
+    bill = monthly_units * rate
+
+    st.markdown(f"**Estimated Monthly Units:** {monthly_units:.2f} kWh")
+    st.markdown(f"**Electricity Bill (Rate: Rs. {rate}/unit):** Rs. {bill:.2f}")
+    st.markdown(f"**Slab Category:** {slab}")
+
+    slab_table = pd.DataFrame({
+        "Slab": ["251 - 500 Unit", "501 - 800 Unit", "Above 801 Unit"],
+        "Per Unit Cost (Rs.)": [6.30, 7.10, 7.10]
+    })
+    st.table(slab_table)
+
+# --- Main Pipeline ---
 def run_prediction_pipeline(data, label):
     durations = {
         '1 Minute': 60,
@@ -127,33 +178,22 @@ def run_prediction_pipeline(data, label):
         '10 Hours': 36000,
         '24 Hours': 86400
     }
-
-    predictions = {
-        dur: predict_next_detailed(data, secs)
-        for dur, secs in durations.items()
-    }
-
-    # --- Table: Summarized Metrics ---
-    summary_table = pd.DataFrame({
-        dur: summarize_metrics(pred_df)
-        for dur, pred_df in predictions.items()
-    }).T
+    predictions = {dur: predict_next_detailed(data, secs) for dur, secs in durations.items()}
+    summary_table = pd.DataFrame({dur: summarize_metrics(pred_df) for dur, pred_df in predictions.items()}).T
     summary_table = summary_table.rename_axis("Duration").reset_index()
-
     st.subheader("📋 Summarized Voltage, Current, Power & Energy Table")
     st.table(summary_table)
-
     st.subheader("⚙️ Power Classification Metrics")
     show_classification_metrics(data)
+    extended_analytics(data, predictions['1 Hour'])
 
 # --- UI Header ---
 st.markdown("""
     <marquee behavior="scroll" direction="right" style="color:blue; font-size:30px; font-weight:bold;">
-    Power Predictor 
+    Power Predictor
     </marquee>
 """, unsafe_allow_html=True)
 
-# --- Main Device Prediction ---
 st.header("📊 Device Power Prediction")
 device = st.selectbox("Select Device", ["HaierTV", "Fridge", "TV"])
 if st.button("Load"):
@@ -165,10 +205,8 @@ if st.button("Load"):
     except Exception as e:
         st.error(f"Error: {e}")
 
-# --- File Upload Prediction ---
 st.markdown("---")
 st.header("📂 Upload Your Own CSV for Prediction")
-
 uploaded_file = st.file_uploader("Upload CSV", type="csv")
 if uploaded_file:
     try:
@@ -183,5 +221,4 @@ if uploaded_file:
     except Exception as e:
         st.error(f"Error processing file: {e}")
 
-# --- Footer ---
 footer()
