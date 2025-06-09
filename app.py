@@ -20,8 +20,8 @@ def link(url, text):
 
 def footer():
     myargs = [
-        "Made with ❤️ by ",
-        link("https://github.com/ayushdit03/Ambekar/tree/main", "Believers")
+        "Made by ",
+        link("https://github.com/ayushdit03/Ambekar/tree/main", "Believers - Batch 2025 ")
     ]
     html(f"""
     <style>
@@ -119,7 +119,7 @@ def extended_analytics(data, prediction):
         ax.legend()
         st.pyplot(fig)
 
-    st.subheader("📋 Prediction Comparison Table for Last 10 Entries Of CSV ")
+    st.subheader("📋 Current & Power Predicted vs Original Value Table  ")
     original = data.tail(10).copy()
     predicted = predict_next_detailed(data[:-10], duration_seconds=50).tail(10).copy()
     comparison = pd.DataFrame({
@@ -131,7 +131,7 @@ def extended_analytics(data, prediction):
     })
     st.dataframe(comparison)
 
-    st.subheader("🔌 Monthly Electricity Bill Estimate from 1 Hour Prediction")
+    st.subheader("🔌 Monthly Electricity Bill Estimate ")
     one_hour_consumption = prediction.loc[prediction['timestamp'] <= prediction['timestamp'].iloc[0] + timedelta(hours=1), 'power'].sum()
     monthly_units = one_hour_consumption * 24 * 30 / 240000
 
