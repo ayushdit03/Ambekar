@@ -16,20 +16,12 @@ from streamlit.components.v1 import html
 
 # --- Footer Setup ---
 def link(url, text):
-    return f"<a href='{url}' target='_blank' style='color:inherit; text-decoration:none;'>{text}</a>"
-
-def image(src, width, height):
-    return f"<img src='{src}' width='{width}' height='{height}' style='vertical-align: middle;'>"
-
-def px(x): return f"{x}px"
+    return f"<a href='{url}' target='_blank' style='color:#00BFFF; text-decoration:none;'>{text}</a>"
 
 def footer():
     myargs = [
         "Made with ❤️ by ",
-        link("https://github.com/ayushdit03", "@AyushJain"),
-        "&nbsp;&nbsp;&nbsp;",
-        link("https://www.linkedin.com/in/ayush-jain-8b6985231",
-             image('https://tse1.mm.bing.net/th?id=OIP.qgMyI8LMGST1grqseOB85AAAAA&pid=Api&P=0&h=220', width=px(25), height=px(25)))
+        link("https://github.com/ayushdit03/Ambekar/tree/main", "Believers")
     ]
     html(f"""
     <style>
@@ -46,13 +38,6 @@ def footer():
         padding: 8px 0;
         z-index: 9999;
         font-family: Arial, sans-serif;
-    }}
-    .footer a {{
-        color: white;
-        text-decoration: none;
-    }}
-    .footer a:hover {{
-        text-decoration: underline;
     }}
     </style>
     <div class="footer">{''.join(myargs)}</div>
@@ -86,12 +71,12 @@ def predict_next_detailed(data, duration_seconds):
     pred_df['timestamp'] = timestamps
     return pred_df
 
-# --- Summarize Metrics ---
+# --- Summarize Metrics (Average) ---
 def summarize_metrics(df):
     return {
-        'voltage': df['voltage'].sum(),
-        'current': df['current'].sum(),
-        'power': df['power'].sum()
+        'voltage': df['voltage'].mean(),
+        'current': df['current'].mean(),
+        'power': df['power'].mean()
     }
 
 # --- Classification Metrics ---
@@ -121,13 +106,16 @@ def show_classification_metrics(data):
 def extended_analytics(data, prediction):
     st.subheader("📉 Time Series Graphs for Current and Power ")
     ten_min_data = prediction.head(120)
-
+    time_in_minutes = [(i+1) for i in range(len(ten_min_data))]
     for col in ['current', 'power']:
-        fig, ax = plt.subplots()
-        ax.plot(ten_min_data['timestamp'], ten_min_data[col], label=col.capitalize())
+        fig, ax = plt.subplots(figsize=(len(ten_min_data)//10, 4))
+        ax.plot(time_in_minutes, ten_min_data[col], label=col.capitalize(), linestyle='-', marker='o', markersize=3)
         ax.set_title(f"Prediction of {col.capitalize()}")
-        ax.set_xlabel("Timestamp")
+        ax.set_xlabel("Time (Minutes)")
         ax.set_ylabel(col.capitalize())
+        ax.set_xticks(time_in_minutes[::10])
+        ax.set_xlim([1, len(time_in_minutes)])
+        ax.grid(True)
         ax.legend()
         st.pyplot(fig)
 
@@ -154,7 +142,7 @@ def extended_analytics(data, prediction):
         rate = 7.10
         slab = "501 - 800 Unit"
     else:
-        rate = 7.25
+        rate = 7.10
         slab = "Above 801 Unit"
 
     bill = monthly_units * rate
